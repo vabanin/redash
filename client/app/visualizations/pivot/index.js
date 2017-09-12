@@ -2,6 +2,12 @@ import angular from 'angular';
 import $ from 'jquery';
 import 'pivottable';
 import 'pivottable/dist/pivot.css';
+import 'pivottable/dist/d3_renderers.min';
+import 'pivottable/dist/c3_renderers.min';
+import 'pivottable/dist/export_renderers.min';
+import 'c3/c3.min';
+import 'c3/c3.min.css';
+import 'd3/d3.min';
 
 import editorTemplate from './pivottable-editor.html';
 
@@ -41,7 +47,12 @@ function pivotTableRenderer() {
             // it which interferes with other visualizations.
             data = angular.copy($scope.queryResult.getData());
             const options = {
-              renderers: $.pivotUtilities.renderers,
+              renderers: $.extend(
+                $.pivotUtilities.renderers,
+                $.pivotUtilities.c3_renderers,
+                $.pivotUtilities.d3_renderers,
+                $.pivotUtilities.export_renderers
+              ),
               onRefresh(config) {
                 const configCopy = Object.assign({}, config);
                 // delete some values which are functions
