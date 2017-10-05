@@ -51,7 +51,7 @@ function pivotTableRenderer() {
                 $.pivotUtilities.renderers,
                 $.pivotUtilities.c3_renderers,
                 $.pivotUtilities.d3_renderers,
-                $.pivotUtilities.export_renderers
+                $.pivotUtilities.export_renderers,
               ),
               onRefresh(config) {
                 const configCopy = Object.assign({}, config);
