@@ -14,7 +14,7 @@ import xlsxwriter
 from flask_login import AnonymousUserMixin, UserMixin
 from flask_sqlalchemy import SQLAlchemy
 from passlib.apps import custom_app_context as pwd_context
-from redash import redis_connection, utils
+from redash import settings, redis_connection, utils
 from redash.destinations import (get_configuration_schema_for_destination_type,
                                  get_destination)
 from redash.metrics import database  # noqa: F401
@@ -33,7 +33,17 @@ from sqlalchemy.orm.exc import NoResultFound  # noqa: F401
 from sqlalchemy.types import TypeDecorator
 from functools import reduce
 
-db = SQLAlchemy(session_options={
+
+class SQLAlchemyExt(SQLAlchemy):
+    def apply_pool_defaults(self, app, options):
+        if settings.SQLALCHEMY_DISABLE_POOL:
+            from sqlalchemy.pool import NullPool
+            options['poolclass'] = NullPool
+        else:
+            return super(SQLAlchemyExt, self).apply_pool_defaults(app, options)
+
+
+db = SQLAlchemyExt(session_options={
     'expire_on_commit': False
 })
 
@@ -292,6 +302,16 @@ class Organization(TimestampMixin, db.Model):
     @property
     def is_public(self):
         return self.settings.get(self.SETTING_IS_PUBLIC, False)
+
+    @property
+    def is_disabled(self):
+        return self.settings.get('is_disabled', False)
+
+    def disable(self):
+        self.settings['is_disabled'] = True
+
+    def enable(self):
+        self.settings['is_disabled'] = False
 
     @property
     def admin_group(self):
@@ -718,7 +738,10 @@ class QueryResult(db.Model, BelongsToOrgMixin):
 
         for (r, row) in enumerate(query_data['rows']):
             for (c, name) in enumerate(column_names):
-                sheet.write(r + 1, c, row.get(name))
+                v = row.get(name)
+                if isinstance(v, list):
+                    v = str(v).encode('utf-8')
+                sheet.write(r + 1, c, v)
 
         book.close()
 
@@ -947,7 +970,7 @@ class Query(ChangeTrackingMixin, TimestampMixin, BelongsToOrgMixin, db.Model):
 
     def fork(self, user):
         forked_list = ['org', 'data_source', 'latest_query_data', 'description',
-                       'query_text', 'query_hash']
+                       'query_text', 'query_hash', 'options']
         kwargs = {a: getattr(self, a) for a in forked_list}
         forked_query = Query.create(name=u'Copy of (#{}) {}'.format(self.id, self.name),
                                     user=user, **kwargs)
@@ -1041,13 +1064,13 @@ class AccessPermission(GFKBase, db.Model):
                              cls.object_type == obj.__tablename__)
 
         if access_type:
-            q.filter(AccessPermission.access_type == access_type)
+            q = q.filter(AccessPermission.access_type == access_type)
 
         if grantee:
-            q.filter(AccessPermission.grantee == grantee)
+            q = q.filter(AccessPermission.grantee == grantee)
 
         if grantor:
-            q.filter(AccessPermission.grantor == grantor)
+            q = q.filter(AccessPermission.grantor == grantor)
 
         return q
 

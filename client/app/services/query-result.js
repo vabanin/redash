@@ -1,6 +1,6 @@
 import debug from 'debug';
 import moment from 'moment';
-import { uniq, contains, values, some, each, isArray, isNumber, isString, includes } from 'underscore';
+import { sortBy, uniq, contains, values, some, each, isArray, isNumber, isString, includes } from 'underscore';
 
 const logger = debug('redash:services:QueryResult');
 const filterTypes = ['filter', 'multi-filter', 'multiFilter'];
@@ -214,16 +214,11 @@ function QueryResultService($resource, $timeout, $q) {
         if (filters) {
           filters.forEach((filter) => {
             if (filter.multiple && includes(filter.current, ALL_VALUES)) {
-              filter.current = filter.values.slice(1);
-            }
-
-            if (filter.current.length === (filter.values.length - 1)) {
-              filter.values[0] = NONE_VALUES;
+              filter.current = filter.values.slice(2);
             }
 
             if (filter.multiple && includes(filter.current, NONE_VALUES)) {
               filter.current = [];
-              filter.values[0] = ALL_VALUES;
             }
           });
 
@@ -324,7 +319,7 @@ function QueryResultService($resource, $timeout, $q) {
           addPointToSeries(point, series, seriesName);
         }
       });
-      return values(series);
+      return sortBy(values(series), 'name');
     }
 
     getColumns() {
@@ -399,6 +394,7 @@ function QueryResultService($resource, $timeout, $q) {
       filters.forEach((filter) => {
         if (filter.multiple) {
           filter.values.unshift(ALL_VALUES);
+          filter.values.unshift(NONE_VALUES);
         }
       });
 
